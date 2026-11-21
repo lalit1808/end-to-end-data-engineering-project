@@ -11,7 +11,8 @@ with legacy_seed as (
         price_date,
         price_eur as avg_price_eur,
         market_cap_eur,
-        volume_eur
+        volume_eur,
+        3 as source_priority
     from {{ ref('stg_crypto_prices') }}
     where price_date not in (
         select price_date from {{ ref('fact_daily_ohlc') }}
@@ -28,7 +29,8 @@ historical as (
         price_date,
         avg_price_eur,
         avg_market_cap_eur as market_cap_eur,
-        avg_volume_eur as volume_eur
+        avg_volume_eur as volume_eur,
+        1 as source_priority
     from {{ ref('fact_daily_ohlc') }}
     where price_date < current_date
 
@@ -43,7 +45,8 @@ derived_today as (
         loaded_date as price_date,
         avg(price_eur) as avg_price_eur,
         avg(market_cap_eur) as market_cap_eur,
-        avg(volume_eur) as volume_eur
+        avg(volume_eur) as volume_eur,
+        2 as source_priority
     from {{ ref('stg_daily_crypto') }}
     where loaded_date = current_date
     group by coin_id, loaded_date
@@ -55,6 +58,20 @@ combined as (
     select * from historical
     union all
     select * from derived_today
+),
+
+deduplicated as (
+    select
+        coin_id,
+        price_date,
+        avg_price_eur,
+        market_cap_eur,
+        volume_eur,
+        row_number() over (
+            partition by coin_id, price_date
+            order by source_priority
+        ) as rn
+    from combined
 )
 
 select
@@ -63,5 +80,6 @@ select
     avg_price_eur,
     market_cap_eur,
     volume_eur
-from combined
+from deduplicated
+where rn = 1
 order by price_date desc, coin_id

@@ -7,6 +7,12 @@ models:
       of the day, close = latest snapshot of the day, high/low = extremes
       across all snapshots, avg = mean across all snapshots. Only
       processes days before today.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - coin_id
+              - price_date
     columns:
       - name: coin_id
         description: CoinGecko coin identifier.
@@ -36,6 +42,12 @@ models:
       legacy seed, finalized daily OHLC summaries, and a live average
       for today. Incremental: only the last 2 days are reprocessed on
       each run, older history stays untouched.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - coin_id
+              - price_date
     columns:
       - name: coin_id
         description: CoinGecko coin identifier.

@@ -42,6 +42,15 @@ jobs:
         env:
           PGPASSWORD: warehouse
 
+      - name: Install dbt packages
+        working-directory: dbt_project
+        run: dbt deps --profiles-dir .
+        env:
+          WAREHOUSE_DB_HOST: localhost
+          WAREHOUSE_DB_USER: warehouse
+          WAREHOUSE_DB_PASSWORD: warehouse
+          WAREHOUSE_DB_NAME: warehouse_db
+
       - name: Check dbt project parses correctly
         working-directory: dbt_project
         run: dbt parse --profiles-dir .
