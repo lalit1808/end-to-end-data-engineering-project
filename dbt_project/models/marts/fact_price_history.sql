@@ -7,19 +7,22 @@
 
 with legacy_seed as (
     select
-        coin_id,
-        price_date,
-        price_eur as avg_price_eur,
-        market_cap_eur,
-        volume_eur,
+        seed.coin_id,
+        seed.price_date,
+        seed.price_eur as avg_price_eur,
+        seed.market_cap_eur,
+        seed.volume_eur,
         3 as source_priority
-    from {{ ref('stg_crypto_prices') }}
-    where price_date not in (
-        select price_date from {{ ref('fact_daily_ohlc') }}
+    from {{ ref('stg_crypto_prices') }} seed
+    where not exists (
+        select 1
+        from {{ ref('fact_daily_ohlc') }} ohlc
+        where ohlc.coin_id = seed.coin_id
+          and ohlc.price_date = seed.price_date
     )
 
     {% if is_incremental() %}
-    and price_date >= (select max(price_date) - interval '2 days' from {{ this }})
+    and seed.price_date >= (select max(price_date) - interval '2 days' from {{ this }})
     {% endif %}
 ),
 
