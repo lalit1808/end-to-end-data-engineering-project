@@ -221,7 +221,11 @@ def extract_normalize_load_daily(coin_ids):
     today = date.today()
 
     rows = []
+    skipped = []
     for coin in coins:
+        if coin.get("last_updated") is None or coin.get("current_price") is None:
+            skipped.append(coin.get("id"))
+            continue
         rows.append((
             coin["id"],
             coin.get("current_price"),
@@ -232,6 +236,9 @@ def extract_normalize_load_daily(coin_ids):
             coin.get("last_updated"),
             today,
         ))
+
+    if skipped:
+        logger.warning(f"Skipped {len(skipped)} coins with incomplete data: {skipped}")
 
     execute_values(cur, upsert_sql, rows)
     conn.commit()
