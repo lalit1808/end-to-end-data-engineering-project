@@ -241,11 +241,21 @@ def extract_normalize_load_daily(coin_ids):
         logger.warning(f"Skipped {len(skipped)} coins with incomplete data: {skipped}")
 
     execute_values(cur, upsert_sql, rows)
+    inserted = cur.rowcount
     conn.commit()
     cur.close()
     conn.close()
-    logger.info(f"Daily snapshot loaded: {len(rows)} rows for {today}")
-    return len(rows)
+
+    logger.info(f"Daily snapshot: {len(rows)} fetched, {inserted} inserted for {today}")
+
+    if inserted == 0 and rows:
+        logger.warning("Hourly snapshot inserted 0 rows - source returned no new timestamps")
+        send_slack_alert(
+            f":warning: Hourly snapshot inserted 0 rows ({len(rows)} fetched). "
+            f"Source may be returning unchanged timestamps, or this is a late catch-up run."
+        )
+
+    return inserted
 
 
 def run_daily_job():

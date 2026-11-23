@@ -11,7 +11,8 @@ cleaned as (
         volume_eur,
         price_change_pct_24h,
         snapshot_at,
-        loaded_date
+        snapshot_at::date as loaded_date,
+        loaded_date as ingested_date
     from source
 )
 
