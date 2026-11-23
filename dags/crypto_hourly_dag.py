@@ -8,6 +8,7 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 
 from crypto_pipeline import (
+    check_hourly_gap,
     ensure_tables,
     get_tracked_coins,
     backfill_new_coins,
@@ -59,6 +60,11 @@ with DAG(
         python_callable=run_hourly_snapshot,
     )
 
+    gap_check_task = PythonOperator(
+        task_id="check_hourly_gap",
+        python_callable=check_hourly_gap,
+    )
+
     dbt_run_task = BashOperator(
         task_id="dbt_run",
         bash_command="cd /opt/airflow/dbt_project && dbt run --profiles-dir .",
@@ -74,4 +80,4 @@ with DAG(
         bash_command="cd /opt/airflow/dbt_project && dbt source freshness --profiles-dir .",
     )
 
-    extract_task >> dbt_run_task >> dbt_test_task >> dbt_freshness_task
+    extract_task >> gap_check_task >> dbt_run_task >> dbt_test_task >> dbt_freshness_task

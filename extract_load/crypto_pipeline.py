@@ -258,6 +258,51 @@ def extract_normalize_load_daily(coin_ids):
     return inserted
 
 
+GAP_CHECK_SQL = """
+with recent_hours as (
+    select distinct date_trunc('hour', snapshot_at) as snapshot_hour
+    from raw.daily_crypto
+    order by snapshot_hour desc
+    limit 2
+)
+select
+    max(snapshot_hour) as latest_hour,
+    min(snapshot_hour) as previous_hour,
+    extract(epoch from (max(snapshot_hour) - min(snapshot_hour))) / 3600 - 1 as missing_hours
+from recent_hours;
+"""
+
+
+def check_hourly_gap():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(GAP_CHECK_SQL)
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if result is None or result[0] is None:
+        logger.warning("Gap check skipped: not enough snapshots in raw.daily_crypto")
+        return 0
+
+    latest_hour, previous_hour, missing_hours = result
+    missing_hours = int(missing_hours or 0)
+
+    if missing_hours > 0:
+        logger.warning(
+            f"Hourly gap detected: {missing_hours} hour(s) missing between "
+            f"{previous_hour} and {latest_hour}"
+        )
+        send_slack_alert(
+            f":rotating_light: Hourly data gap: {missing_hours} hour(s) missing "
+            f"between {previous_hour} and {latest_hour}"
+        )
+    else:
+        logger.info(f"No hourly gap: latest snapshot hour {latest_hour}")
+
+    return missing_hours
+
+
 def run_daily_job():
     logger.info("Starting crypto snapshot pipeline job")
     ensure_tables()
@@ -265,6 +310,7 @@ def run_daily_job():
     backfill_new_coins(top25_today)
     all_known = get_all_known_coin_ids()
     extract_normalize_load_daily(all_known)
+    check_hourly_gap()
     logger.info("Crypto snapshot pipeline job complete")
 
 
